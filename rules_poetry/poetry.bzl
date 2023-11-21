@@ -9,14 +9,15 @@ POETRY_UNSAFE_PACKAGES = ["setuptools", "distribute", "pip", "wheel"]
 # normally _ would be a delimiter, but these values can include it in the name
 # next would normally be : but bazel uses this in target names
 # so finally we settle on ! for a delimiter in this case.
+# this values from https://peps.python.org/pep-0496/#strings
 SUPPORTED_PLATFORMS = [
     'linux!s390x',
     'linux!ppc64le',
     'linux!aarch64',
     'linux!x86_64',
-    'macos!aarch64',
-    'macos!x86_64',
-    'windows!x86_64'
+    'darwin!aarch64',
+    'darwin!x86_64',
+    'win32!x86_64'
 ]
 
 def _clean_name(name):
