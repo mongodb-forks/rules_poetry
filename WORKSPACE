@@ -25,8 +25,6 @@ load("@com_sonia_rules_poetry//rules_poetry:defs.bzl", "poetry_deps")
 
 poetry_deps()
 
-
-
 # Go rules to make the Docker rules work
 
 http_archive(
@@ -86,7 +84,7 @@ poetry(
     ],
     lockfile = "//test:poetry.lock",
     pyproject = "//test:pyproject.toml",
-    python_interpreter_target = python_interpreter,
+    python_interpreter_target_default = python_interpreter,
 )
 
 poetry(
@@ -97,7 +95,7 @@ poetry(
     ],
     lockfile = "//test/no_group_deps:poetry.lock",
     pyproject = "//test/no_group_deps:pyproject.toml",
-    python_interpreter_target = python_interpreter,
+    python_interpreter_target_default = python_interpreter,
 )
 
 
@@ -116,8 +114,8 @@ container_pull(
     tag = "3.7.4-slim-buster",
 )
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
+# We need skylib to be able to use config_setting_group
+# https://github.com/bazelbuild/bazel-skylib/blob/main/docs/selects_doc.md#selectsconfig_setting_group
 http_archive(
     name = "bazel_skylib",
     sha256 = "cd55a062e763b9349921f0f5db8c3933288dc8ba4f76dd9416aac68acee3cb94",
@@ -127,11 +125,8 @@ http_archive(
     ],
 )
 
-load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
-
-bazel_skylib_workspace()
-
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+# We are testing powerpc and 390x platforms which are only available in newer version of
+# bazels built in platform constraints.
 http_archive(
     name = "platforms",
     urls = [

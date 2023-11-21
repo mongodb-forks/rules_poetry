@@ -5,6 +5,10 @@
 # See https://github.com/python-poetry/poetry/blob/d2fd581c9a856a5c4e60a25acb95d06d2a963cf2/poetry/puzzle/provider.py#L55
 # and https://github.com/python-poetry/poetry/issues/1584
 POETRY_UNSAFE_PACKAGES = ["setuptools", "distribute", "pip", "wheel"]
+
+# normally _ would be a delimiter, but these values can include it in the name
+# next would normally be : but bazel uses this in target names
+# so finally we settle on ! for a delimiter in this case.
 SUPPORTED_PLATFORMS = [
     'linux!s390x',
     'linux!ppc64le',
@@ -35,9 +39,16 @@ def _resolve_python_interpreter(rctx):
     elif "mac" in rctx.os.name:
         interpreter_target = rctx.attr.python_interpreter_target_mac
     else:
-        interpreter_target = rctx.attr.python_interpreter_target
+        # we are referring to a bazel file target and just use the default location
+        # the the file might be.
+        interpreter_target = rctx.attr.python_interpreter_target_default
     
     if interpreter_target:
+        # interpreter_target represent a bazel file target, and most likely
+        # is coming from some part of the current bazel build. The other option
+        # available for selecting the interpretor would be a raw path string
+        # pointing to something that should be installed on the system, for 
+        # example /usr/bin/python
         if rctx.attr.python_interpreter:
             fail("interpreter_target and python_interpreter incompatible")
     
@@ -100,13 +111,35 @@ def _mapping(repository_ctx):
 def extract_markers(repository_ctx, resolved_markers, dep, markers):
     python_interpreter = _resolve_python_interpreter(repository_ctx)
 
-    if str(type(markers)) == 'list':
-        if dep not in resolved_markers:
-            resolved_markers[dep] = {}
-        for marker in markers:
+    # the passed arg "markers" may not actually be a marker. It could be just a
+    # version string. So we check if its a type which could support markers
+    if str(type(markers)) != 'list' and str(type(markers)) != 'dict':
+        return
+
+    # sometimes markers are not in list form if there is only one marker. We make
+    # it a list so the code path below is the same.
+    if str(type(markers)) == 'dict':
+        markers = [markers]
+
+    for marker in markers:
+        marker_string = marker.get('markers', '')
+        if marker_string:
+
+            # we found a marker so add it to the aggregate list of found markers
+            if dep not in resolved_markers:
+                resolved_markers[dep] = {}
+
+            # test each platform to see if the marker shows support for it
             for platform in SUPPORTED_PLATFORMS:
                 system, machine = platform.split('!')
-                test_string = marker['markers'].replace('platform_machine', "'" + machine + "'")
+
+                # Here we construct the code string we want to evaluate as a conditional
+                # for example:
+                #   * the input string (e.g.: "platform_machine == 's390x' or platform_machine == 'ppc64le'")
+                #   * output code string (e.g.: "'macos' == 's390x' or 'macos' == 'ppc64le'")
+                #   * the eval result of the code string is "False", macos is not supported 
+                #     for the version related to the code string. 
+                test_string =  marker_string.replace('platform_machine', "'" + machine + "'")
                 test_string = test_string.replace('sys_platform', "'" + system + "'")
                 cmd = [
                     python_interpreter,
@@ -114,10 +147,14 @@ def extract_markers(repository_ctx, resolved_markers, dep, markers):
                     'print(' + test_string + ')'
                 ]
                 result = repository_ctx.execute(cmd)
-                if result.stdout.strip() == "True":
-                    if marker['version'] not in resolved_markers[dep]:
-                        resolved_markers[dep][marker['version']] = []
-                    resolved_markers[dep][marker['version']].append(platform)
+                if result.stdout.strip() == str(True):
+
+                    # if the marker gave True for the platform strings under test,
+                    # we save the platform to the current version
+                    marker_version = marker['version']
+                    if marker_version not in resolved_markers[dep]:
+                        resolved_markers[dep][marker_version] = []
+                    resolved_markers[dep][marker_version].append(platform)
 
 def _impl(repository_ctx):
     python_interpreter = _resolve_python_interpreter(repository_ctx)
@@ -170,19 +207,15 @@ def _impl(repository_ctx):
             fail("pyproject.toml dependency {} is also in the excludes list".format(requested))
 
     toml_markers = {}
-
     if metadata["lock-version"] in ["2.0"]:
-        poetry_deps = mapping['pyproject']['tool']['poetry']
-        
-        for dep in poetry_deps['dependencies']:
-            extract_markers(repository_ctx, toml_markers, dep, poetry_deps['dependencies'][dep])
-                    
-        if 'group' in poetry_deps:
-            for group in poetry_deps['group']:
-                if 'dependencies' in poetry_deps['group'][group]:
-                    for dep in poetry_deps['group'][group]['dependencies']:
-                        extract_markers(repository_ctx, toml_markers, dep, poetry_deps['group'][group]['dependencies'][dep])
-
+        poetry_dict = mapping.get('pyproject', {}).get('tool', {}).get('poetry')
+        if poetry_dict:
+            for dep, markers in poetry_dict.get('dependencies', {}).items():
+                extract_markers(repository_ctx, toml_markers, dep, markers)
+                        
+            for _, group in poetry_dict.get('group', {}).items():
+                for dep, markers in group.get('dependencies', {}).items():
+                    extract_markers(repository_ctx, toml_markers, dep, markers)
                 
     packages = []
     package_names = []
@@ -353,17 +386,17 @@ poetry = repository_rule(
             mandatory = False,
             doc = "The command to run the Python interpreter used during repository setup",
         ),
-        "python_interpreter_target": attr.label(
+        "python_interpreter_target_default": attr.label(
             mandatory = False,
-            doc = "The target of the Python interpreter used during repository setup",
+            doc = "The target of the Python interpreter used during repository setup, if not windows or macos",
         ),
         "python_interpreter_target_win": attr.label(
             mandatory = False,
-            doc = "The target of the Python interpreter used during repository setup",
+            doc = "The target of the Python interpreter used during repository setup for windows platforms",
         ),
         "python_interpreter_target_mac": attr.label(
             mandatory = False,
-            doc = "The target of the Python interpreter used during repository setup",
+            doc = "The target of the Python interpreter used during repository setup for macos platforms",
         ),
         "_rules": attr.label(
             default = ":defs.bzl",
