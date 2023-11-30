@@ -11,6 +11,7 @@ def deterministic_env():
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONHASHSEED": "0",
         "SOURCE_DATE_EPOCH": "315532800",  # set wheel timestamps to 1980-01-01T00:00:00Z
+        "USERPROFILE":".",
     }
 
 def poetry_deps():
