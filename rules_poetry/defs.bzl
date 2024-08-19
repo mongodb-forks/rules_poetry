@@ -15,28 +15,7 @@ def deterministic_env():
     }
 
 def poetry_deps():
-    http_archive(
-        name = "pip_archive",
-        sha256 = "8182aec21dad6c0a49a2a3d121a87cd524b950e0b6092b181625f07ebdde7530",
-        strip_prefix = "pip-22.3",
-        urls = ["https://files.pythonhosted.org/packages/f8/08/7f92782ff571c7c7cb6c5eeb8ebbb1f68cb02bdb24e55c5de4dd9ce98bc3/pip-22.3.tar.gz"],
-        build_file_content = """
-load("@rules_python//python:defs.bzl", "py_binary")
-
-py_binary(
-    name = "pip",
-    main = "src/pip/__main__.py",
-    imports = ["src"],
-    srcs = glob(["src/**/*.py"]),
-    data = glob(["src/**/*"], exclude=["**/*.py", "**/* *", "BUILD", "WORKSPACE"]),
-    deps = ["@setuptools_archive//:setuptools", "@wheel_archive//:wheel"],
-    python_version = "PY3",
-    visibility = ["//visibility:public"],
-)
-        """,
-        workspace_file_content = "",
-    )
-
+    
     http_archive(
         name = "wheel_archive",
         sha256 = "7a5a3095dceca97a3cac869b8fef4e89b83fafde21b6688f47b6fda7600eb441",
@@ -110,29 +89,17 @@ COMMON_ARGS = [
 ]
 
 def _download(ctx, requirements):
-    destination = ctx.actions.declare_directory("wheels/%s" % ctx.attr.name)
+
     toolchain = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"]
     runtime = toolchain.py3_runtime
+    inputs = depset([requirements], transitive = [runtime.files])
+    tools = depset(direct = [runtime.interpreter], transitive = [runtime.files])
 
-    # The Python interpreter can be either provided through a path
-    # (platform runtime), or through a label (in-build runtime).
-    # See https://docs.bazel.build/versions/master/be/python.html#py_runtime
-    if runtime.interpreter_path != None:
-        executable = runtime.interpreter_path
-        inputs = depset([requirements])
-        tools = depset(direct = [ctx.executable._pip])
-    else:
-        executable = runtime.interpreter.path
-        inputs = depset([requirements], transitive = [runtime.files])
-        tools = depset(direct = [runtime.interpreter,
-                                 ctx.executable._pip], transitive = [runtime.files])
-
-    pip_path = ctx.executable._pip.path
+    python = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"].py3_runtime
+    destination = ctx.actions.declare_directory("wheels/%s" % ctx.attr.name)
     args = ctx.actions.args()
-    if pip_path.endswith(".exe"):
-        executable = pip_path
-    else:
-        args.add(pip_path)
+    args.add("-m")
+    args.add("pip")
     args.add("wheel")
     args.add_all(COMMON_ARGS)
     args.add("--require-hashes")
@@ -145,7 +112,7 @@ def _download(ctx, requirements):
         args.add(ctx.attr.source_url)
 
     ctx.actions.run(
-        executable = executable,
+        executable = python.interpreter.path,
         inputs = inputs,
         outputs = [destination],
         arguments = [args],
@@ -182,7 +149,6 @@ def _download_wheel_impl(ctx):
 download_wheel = rule(
     implementation = _download_wheel_impl,
     attrs = {
-        "_pip": attr.label(default = "@pip_archive//:pip", executable = True, cfg = "exec"),
         "pkg": attr.string(mandatory = True),
         "version": attr.string(mandatory = True),
         "hashes": attr.string_list(mandatory = True, allow_empty = False),
@@ -193,61 +159,38 @@ download_wheel = rule(
 )
 
 def _install(ctx, wheel_info):
-    installed_wheel = ctx.actions.declare_directory(wheel_info.pkg)
+    
+    installed_wheel_dec = ctx.actions.declare_directory(wheel_info.pkg)
+    installed_wheel = ctx.actions.declare_file(wheel_info.pkg + ".zip")
+    python = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"].py3_runtime
+    
+    args = [
+        ctx.attr._install_script.files.to_list()[0].path,
+        installed_wheel_dec.path,
+        "-m",
+        "pip",
+        'install', 
+        '--force-reinstall',
+        '--upgrade',
+    ] + COMMON_ARGS + [
+        "--no-compile",
+        "--no-index",
+        "--find-links",
+        ctx.files.wheel[0].path,
+        "--target="+installed_wheel_dec.path,
+        wheel_info.pkg + " ; " + str(wheel_info.marker)
+    ]
 
-    # work around dumb distutils "feature" that prevents using `pip install --target
-    # if a system config file already has a prefix setup... such as homebrew's
-    # copy in /usr/local/opt/python3/Frameworks/Python.framework/Versions/3.7/lib/python3.7/distutils/distutils.cfg
-    # the second portion of this sets the HOME environment variable to this directory
-    # so distutils will pick it up instead of Homebrew's broken version
-    setup_cfg = ctx.actions.declare_file("distutils_config/.pydistutils.cfg")
-    ctx.actions.write(
-        setup_cfg,
-        """
-[install]
-prefix=
-""",
-    )
-
-    toolchain = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"]
-    runtime = toolchain.py3_runtime
-
-    # The Python interpreter can be either provided through a path
-    # (platform runtime), or through a label (in-build runtime).
-    # See https://docs.bazel.build/versions/master/be/python.html#py_runtime
-    if runtime.interpreter_path != None:
-        interpreter_path = runtime.interpreter_path
-        tools = depset(direct = [ctx.executable._pip])
-    else:
-        interpreter_path = runtime.interpreter.path
-        tools = depset(direct = [runtime.interpreter,
-                                 ctx.executable._pip], transitive = [runtime.files])
-
-    executable = [ctx.executable._pip.path]
-    if not ctx.executable._pip.path.endswith(".exe"):
-        executable.insert(0, interpreter_path)
-
-    args = ctx.actions.args()
-    args.add(" ".join(executable))
-    args.add(" ".join(COMMON_ARGS))
-    args.add(installed_wheel.path)
-    args.add(wheel_info.marker)
-
-    # bazel expands the directory to individual files
-    args.add_all(ctx.files.wheel)
-
-    ctx.actions.run_shell(
-        command = "$1 install --force-reinstall --upgrade $2 --no-compile --target=$3 \"$5 ; $4\"",
-        # second portion of the .pydistutils.cfg workaround described above
-        env = dict(deterministic_env().items() + [("HOME", setup_cfg.dirname)]),
-        inputs = ctx.files.wheel + [setup_cfg],
-        outputs = [installed_wheel],
+    ctx.actions.run(
+        executable = python.interpreter.path,
+        outputs = [installed_wheel, installed_wheel_dec],
+        inputs = depset(ctx.files.wheel, transitive = [python.files, ctx.attr._install_script.files]),
+        arguments = args,
+        env = deterministic_env(),
         progress_message = "Installing %s wheel" % wheel_info.pkg,
-        arguments = [args],
         mnemonic = "CopyWheel",
-        tools = tools,
     )
-
+    
     return installed_wheel
 
 def _pip_install_impl(ctx):
@@ -271,8 +214,8 @@ def _pip_install_impl(ctx):
 pip_install = rule(
     implementation = _pip_install_impl,
     attrs = {
-        "_pip": attr.label(default = "@pip_archive//:pip", executable = True, cfg = "exec"),
         "wheel": attr.label(mandatory = True, providers = [WheelInfo]),
+        "_install_script": attr.label(default = "@poetry//:install_wheel_and_zip.py", allow_single_file=True),
     },
     toolchains = ["@bazel_tools//tools/python:toolchain_type"],
 )
