@@ -160,13 +160,10 @@ download_wheel = rule(
 
 def _install(ctx, wheel_info):
     
-    installed_wheel_dec = ctx.actions.declare_directory(wheel_info.pkg)
-    installed_wheel = ctx.actions.declare_file(wheel_info.pkg + ".zip")
+    installed_wheel = ctx.actions.declare_directory(wheel_info.pkg)
     python = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"].py3_runtime
     
     args = [
-        ctx.attr._install_script.files.to_list()[0].path,
-        installed_wheel_dec.path,
         "-m",
         "pip",
         'install', 
@@ -177,14 +174,14 @@ def _install(ctx, wheel_info):
         "--no-index",
         "--find-links",
         ctx.files.wheel[0].path,
-        "--target="+installed_wheel_dec.path,
+        "--target="+installed_wheel.path,
         wheel_info.pkg + " ; " + str(wheel_info.marker)
     ]
 
     ctx.actions.run(
         executable = python.interpreter.path,
-        outputs = [installed_wheel, installed_wheel_dec],
-        inputs = depset(ctx.files.wheel, transitive = [python.files, ctx.attr._install_script.files]),
+        outputs = [installed_wheel],
+        inputs = depset(ctx.files.wheel, transitive = [python.files]),
         arguments = args,
         env = deterministic_env(),
         progress_message = "Installing %s wheel" % wheel_info.pkg,
@@ -215,7 +212,6 @@ pip_install = rule(
     implementation = _pip_install_impl,
     attrs = {
         "wheel": attr.label(mandatory = True, providers = [WheelInfo]),
-        "_install_script": attr.label(default = "@poetry//:install_wheel_and_zip.py", allow_single_file=True),
     },
     toolchains = ["@bazel_tools//tools/python:toolchain_type"],
 )
