@@ -11,13 +11,13 @@ POETRY_UNSAFE_PACKAGES = ["setuptools", "distribute", "pip", "wheel"]
 # so finally we settle on ! for a delimiter in this case.
 # this values from https://peps.python.org/pep-0496/#strings
 SUPPORTED_PLATFORMS = [
-    'linux!s390x',
-    'linux!ppc64le',
-    'linux!aarch64',
-    'linux!x86_64',
-    'darwin!aarch64',
-    'darwin!x86_64',
-    'win32!x86_64'
+    "linux!s390x",
+    "linux!ppc64le",
+    "linux!aarch64",
+    "linux!x86_64",
+    "darwin!aarch64",
+    "darwin!x86_64",
+    "win32!x86_64",
 ]
 
 def _clean_name(name):
@@ -43,16 +43,16 @@ def _resolve_python_interpreter(rctx):
         # we are referring to a bazel file target and just use the default location
         # the the file might be.
         interpreter_target = rctx.attr.python_interpreter_target_default
-    
+
     if interpreter_target:
         # interpreter_target represent a bazel file target, and most likely
         # is coming from some part of the current bazel build. The other option
         # available for selecting the interpretor would be a raw path string
-        # pointing to something that should be installed on the system, for 
+        # pointing to something that should be installed on the system, for
         # example /usr/bin/python
         if rctx.attr.python_interpreter:
             fail("interpreter_target and python_interpreter incompatible")
-    
+
         python_interpreter = rctx.path(interpreter_target)
 
         return python_interpreter
@@ -97,16 +97,15 @@ def _mapping(repository_ctx):
 
     groups = {}
 
-    
     for k, v in pyproject["tool"]["poetry"].get("group", {}).items():
         groups.update({
-            k: unpack_dependencies(v["dependencies"])
+            k: unpack_dependencies(v["dependencies"]),
         })
 
     return {
         "dependencies": dependencies,
         "groups": groups,
-        "pyproject": pyproject
+        "pyproject": pyproject,
     }
 
 def extract_markers(repository_ctx, resolved_markers, dep, markers):
@@ -114,45 +113,43 @@ def extract_markers(repository_ctx, resolved_markers, dep, markers):
 
     # the passed arg "markers" may not actually be a marker. It could be just a
     # version string. So we check if its a type which could support markers
-    if str(type(markers)) != 'list' and str(type(markers)) != 'dict':
+    if str(type(markers)) != "list" and str(type(markers)) != "dict":
         return
 
     # sometimes markers are not in list form if there is only one marker. We make
     # it a list so the code path below is the same.
-    if str(type(markers)) == 'dict':
+    if str(type(markers)) == "dict":
         markers = [markers]
 
     for marker in markers:
-        marker_string = marker.get('markers', '')
+        marker_string = marker.get("markers", "")
         if marker_string:
-
             # we found a marker so add it to the aggregate list of found markers
             if dep not in resolved_markers:
                 resolved_markers[dep] = {}
 
             # test each platform to see if the marker shows support for it
             for platform in SUPPORTED_PLATFORMS:
-                system, machine = platform.split('!')
+                system, machine = platform.split("!")
 
                 # Here we construct the code string we want to evaluate as a conditional
                 # for example:
                 #   * the input string (e.g.: "platform_machine == 's390x' or platform_machine == 'ppc64le'")
                 #   * output code string (e.g.: "'macos' == 's390x' or 'macos' == 'ppc64le'")
-                #   * the eval result of the code string is "False", macos is not supported 
-                #     for the version related to the code string. 
-                test_string =  marker_string.replace('platform_machine', "'" + machine + "'")
-                test_string = test_string.replace('sys_platform', "'" + system + "'")
+                #   * the eval result of the code string is "False", macos is not supported
+                #     for the version related to the code string.
+                test_string = marker_string.replace("platform_machine", "'" + machine + "'")
+                test_string = test_string.replace("sys_platform", "'" + system + "'")
                 cmd = [
                     python_interpreter,
-                    '-c',
-                    'print(' + test_string + ')'
+                    "-c",
+                    "print(" + test_string + ")",
                 ]
                 result = repository_ctx.execute(cmd)
                 if result.stdout.strip() == str(True):
-
                     # if the marker gave True for the platform strings under test,
                     # we save the platform to the current version
-                    marker_version = marker['version']
+                    marker_version = marker["version"]
                     if marker_version not in resolved_markers[dep]:
                         resolved_markers[dep][marker_version] = []
                     resolved_markers[dep][marker_version].append(platform)
@@ -209,15 +206,15 @@ def _impl(repository_ctx):
 
     toml_markers = {}
     if metadata["lock-version"] in ["2.0"]:
-        poetry_dict = mapping.get('pyproject', {}).get('tool', {}).get('poetry')
+        poetry_dict = mapping.get("pyproject", {}).get("tool", {}).get("poetry")
         if poetry_dict:
-            for dep, markers in poetry_dict.get('dependencies', {}).items():
+            for dep, markers in poetry_dict.get("dependencies", {}).items():
                 extract_markers(repository_ctx, toml_markers, dep, markers)
-                        
-            for _, group in poetry_dict.get('group', {}).items():
-                for dep, markers in group.get('dependencies', {}).items():
+
+            for _, group in poetry_dict.get("group", {}).items():
+                for dep, markers in group.get("dependencies", {}).items():
                     extract_markers(repository_ctx, toml_markers, dep, markers)
-                
+
     packages = []
     package_names = []
     for package in lockfile["package"]:
@@ -233,15 +230,15 @@ def _impl(repository_ctx):
 
         if _clean_name(name) in package_names:
             continue
-        
-        version_select = '"' + package['version'] + '"'
+
+        version_select = '"' + package["version"] + '"'
         if name in toml_markers:
             version_select = "select({\n"
             for version in toml_markers[name]:
                 for platform in toml_markers[name][version]:
-                    system, machine = platform.split('!')
-                    version_select += "        ':{system}!{machine}':'{version}',\n".format(system=system, machine=machine, version=version)
-            version_select += '    })'
+                    system, machine = platform.split("!")
+                    version_select += "        ':{system}!{machine}':'{version}',\n".format(system = system, machine = machine, version = version)
+            version_select += "    })"
 
         package_names.append(_clean_name(name))
         packages.append(struct(
@@ -322,13 +319,19 @@ load("@bazel_skylib//lib:selects.bzl", "selects")
 
 """
     for platform in SUPPORTED_PLATFORMS:
-        system, machine = platform.split('!')
+        system, machine = platform.split("!")
+
+        # Bazel uses windows as a platform specifier not win32
+        if system == "win32":
+            system = "windows"
+        if system == "darwin":
+            system = "macos"
         build_content += """
 selects.config_setting_group(
     name = "{platform}",
     match_all = ["@platforms//os:{system}", "@platforms//cpu:{machine}"],
 )
-""".format(platform=platform, system=system, machine=machine)
+""".format(platform = platform, system = system, machine = machine)
 
     install_tags = ["\"{}\"".format(tag) for tag in repository_ctx.attr.tags]
     download_tags = install_tags + ["\"requires-network\""]
