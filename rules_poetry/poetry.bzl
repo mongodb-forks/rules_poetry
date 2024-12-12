@@ -298,7 +298,8 @@ os.makedirs(wheel_dir, exist_ok=True)
 subprocess.run([sys.executable] + args)
 real_wheel = os.listdir(wheel_dir)[0]
 real_wheel = os.path.join(wheel_dir, real_wheel)
-os.link(real_wheel, wheel_file)
+if not os.path.exists(wheel_file):
+    os.link(real_wheel, wheel_file)
 """
     )
     poetry_template = """
