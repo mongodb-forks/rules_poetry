@@ -298,7 +298,8 @@ real_wheel = os.listdir(wheel_dir)[0]
 wheel_name_parts = real_wheel.split("-")
 generic_wheel = "-".join(wheel_name_parts[:2]) + "-py3-none-any.whl"
 generic_wheel = os.path.join(wheel_dir, generic_wheel)
-os.link(generic_wheel, wheel_file)
+real_wheel = os.path.join(wheel_dir, real_wheel)
+os.link(real_wheel, generic_wheel)
 """
     )
     poetry_template = """
