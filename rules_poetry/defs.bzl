@@ -92,7 +92,7 @@ def _download(ctx, requirements):
 
     toolchain = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"]
     runtime = toolchain.py3_runtime
-    inputs = depset([requirements], transitive = [runtime.files])
+    inputs = depset([requirements], transitive = [runtime.files, ctx.attr._wheel_wrapper.files])
     tools = depset(direct = [runtime.interpreter], transitive = [runtime.files])
 
     python = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"].py3_runtime
