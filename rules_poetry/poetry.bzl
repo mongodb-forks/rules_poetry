@@ -294,7 +294,11 @@ wheel_dir = os.path.dirname(wheel_file)
 args = sys.argv[2:]
 os.makedirs(wheel_dir, exist_ok=True)
 subprocess.run([sys.executable] + args)
-os.link(os.path.join(wheel_dir, os.listdir(wheel_dir)[0]), wheel_file)
+real_wheel = os.listdir(wheel_dir)[0]
+wheel_name_parts = real_wheel.split("-")
+generic_wheel = "-".join(wheel_name_parts[:2]) + "-py3-none-any.whl"
+generic_wheel = os.path.join(wheel_dir, generic_wheel)
+os.link(generic_wheel, wheel_file)
 """
     )
     poetry_template = """

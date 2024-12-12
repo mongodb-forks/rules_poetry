@@ -175,10 +175,7 @@ def _install(ctx, wheel_info):
     ] + COMMON_ARGS + [
         "--no-compile",
         "--no-index",
-        "--find-links",
-        ctx.files.wheel[0].dirname,
-        "--target="+installed_wheel.path,
-        wheel_info.pkg + " ; " + str(wheel_info.marker)
+        ctx.files.wheel[0].path,
     ]
 
     ctx.actions.run(
