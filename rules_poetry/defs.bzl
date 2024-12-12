@@ -154,7 +154,6 @@ download_wheel = rule(
         "pkg": attr.string(mandatory = True),
         "version": attr.string(mandatory = True),
         "hashes": attr.string_list(mandatory = True, allow_empty = False),
-        "hashes"
         "marker": attr.string(mandatory = True),
         "source_url": attr.string(mandatory = True),
         "_wheel_wrapper": attr.label(default="//tools:wheel_wrapper.py")
