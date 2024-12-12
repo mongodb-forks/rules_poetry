@@ -282,7 +282,21 @@ def dependency(name, group = None):
     )
 
     repository_ctx.symlink(repository_ctx.path(repository_ctx.attr._rules), repository_ctx.path("defs.bzl"))
-    repository_ctx.symlink(repository_ctx.path(repository_ctx.attr._wheel_wrapper), repository_ctx.path("wheel_wrapper.py"))
+    repository_ctx.file(
+        "wheel_wrapper.py",
+        """
+import sys
+import subprocess
+import os
+
+wheel_file = sys.argv[2]
+wheel_dir = os.path.dirname(wheel_file)
+args = sys.argv[3:]
+os.makedirs(wheel_dir, exist_ok=True)
+subprocess.run([sys.executable] + args)
+os.link(os.listdir(wheel_dir)[0], wheel_file)
+"""
+    )
     poetry_template = """
 download_wheel(
     name = "wheel_{name}",
@@ -316,8 +330,6 @@ load("//:defs.bzl", "download_wheel")
 load("//:defs.bzl", "noop")
 load("//:defs.bzl", "pip_install")
 load("@bazel_skylib//lib:selects.bzl", "selects")
-
-exports_files(["wheel_wrapper.py"])
 
 """
     for platform in SUPPORTED_PLATFORMS:
