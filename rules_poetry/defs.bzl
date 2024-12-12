@@ -96,15 +96,17 @@ def _download(ctx, requirements):
     tools = depset(direct = [runtime.interpreter], transitive = [runtime.files])
 
     python = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"].py3_runtime
-    destination = ctx.actions.declare_directory("wheels/%s" % ctx.attr.name)
+    destination = ctx.actions.declare_file("wheels/%s/%s.whl" % (ctx.attr.name,ctx.attr.name))
     args = ctx.actions.args()
+    args.add(ctx.attr._wheel_wrapper.files.to_list()[0].path)
+    args.add(destination.path)
     args.add("-m")
     args.add("pip")
     args.add("wheel")
     args.add_all(COMMON_ARGS)
     args.add("--require-hashes")
     args.add("--wheel-dir")
-    args.add(destination.path)
+    args.add(destination.dirname)
     args.add("-r")
     args.add(requirements)
     if ctx.attr.source_url != "":
@@ -152,8 +154,10 @@ download_wheel = rule(
         "pkg": attr.string(mandatory = True),
         "version": attr.string(mandatory = True),
         "hashes": attr.string_list(mandatory = True, allow_empty = False),
+        "hashes"
         "marker": attr.string(mandatory = True),
         "source_url": attr.string(mandatory = True)
+        "_wheel_wrapper": attr.label(default="//tools:wheel_wrapper.py")
     },
     toolchains = ["@bazel_tools//tools/python:toolchain_type"],
 )
