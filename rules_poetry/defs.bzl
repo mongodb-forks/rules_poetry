@@ -182,7 +182,6 @@ def _install(ctx, wheel_info):
         "--abi",
         "none",
         "--target="+installed_wheel.path,
-        wheel_info.pkg + " ; " + str(wheel_info.marker),
         ctx.files.wheel[0].path,
     ]
 
