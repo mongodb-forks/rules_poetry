@@ -288,18 +288,17 @@ def dependency(name, group = None):
 import sys
 import subprocess
 import os
+import shutil
 
 wheel_file = sys.argv[1]
 wheel_dir = os.path.dirname(wheel_file)
 args = sys.argv[2:]
+shutil.rmtree(wheel_dir)
 os.makedirs(wheel_dir, exist_ok=True)
 subprocess.run([sys.executable] + args)
 real_wheel = os.listdir(wheel_dir)[0]
-wheel_name_parts = real_wheel.split("-")
-generic_wheel = "-".join(wheel_name_parts[:2]) + "-py3-none-any.whl"
-generic_wheel = os.path.join(wheel_dir, generic_wheel)
 real_wheel = os.path.join(wheel_dir, real_wheel)
-os.link(real_wheel, generic_wheel)
+os.link(real_wheel, wheel_file)
 """
     )
     poetry_template = """
