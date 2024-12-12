@@ -156,7 +156,7 @@ download_wheel = rule(
         "hashes": attr.string_list(mandatory = True, allow_empty = False),
         "marker": attr.string(mandatory = True),
         "source_url": attr.string(mandatory = True),
-        "_wheel_wrapper": attr.label(default="//:wheel_wrapper.py", allow_single_file=True
+        "_wheel_wrapper": attr.label(default="//:wheel_wrapper.py", allow_single_file=True),
     },
     toolchains = ["@bazel_tools//tools/python:toolchain_type"],
 )
