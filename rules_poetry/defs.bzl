@@ -176,7 +176,7 @@ def _install(ctx, wheel_info):
         "--no-compile",
         "--no-index",
         "--find-links",
-        ctx.files.wheel[0].path,
+        ctx.files.wheel[0].dirname,
         "--target="+installed_wheel.path,
         wheel_info.pkg + " ; " + str(wheel_info.marker)
     ]
@@ -189,6 +189,7 @@ def _install(ctx, wheel_info):
         env = deterministic_env(),
         progress_message = "Installing %s wheel" % wheel_info.pkg,
         mnemonic = "CopyWheel",
+        execution_requirements = {"no-cache": "1"},
     )
     
     return installed_wheel
