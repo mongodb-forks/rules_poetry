@@ -96,7 +96,7 @@ def _download(ctx, requirements):
     tools = depset(direct = [runtime.interpreter], transitive = [runtime.files])
 
     python = ctx.toolchains["@bazel_tools//tools/python:toolchain_type"].py3_runtime
-    destination = ctx.actions.declare_file("wheels/%s/%s-%s-py3-none-any.whl" % (ctx.attr.name,ctx.attr.pkg,ctx.attr.version))
+    destination = ctx.actions.declare_file("wheels/%s/%s-%s-py3-none-any.whl" % (ctx.attr.name,ctx.attr.pkg.replace("-", "_"),ctx.attr.version))
     args = ctx.actions.args()
     args.add(ctx.attr._wheel_wrapper.files.to_list()[0].path)
     args.add(destination.path)
