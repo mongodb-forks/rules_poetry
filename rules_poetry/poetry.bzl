@@ -282,7 +282,8 @@ def dependency(name, group = None):
     )
 
     repository_ctx.symlink(repository_ctx.path(repository_ctx.attr._rules), repository_ctx.path("defs.bzl"))
-
+    repository_ctx.symlink(repository_ctx.path(repository_ctx.attr._wheel_wrapper), repository_ctx.path("wheel_wrapper.py"))
+    \
     poetry_template = """
 download_wheel(
     name = "wheel_{name}",
@@ -404,6 +405,9 @@ poetry = repository_rule(
         ),
         "_rules": attr.label(
             default = ":defs.bzl",
+        ),
+        "_wheel_wrapper": attr.label(
+            default = ":wheel_wrapper.py",
         ),
         "_script": attr.label(
             executable = True,
