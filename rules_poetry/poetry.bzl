@@ -232,19 +232,24 @@ def _impl(repository_ctx):
             continue
 
         version_select = '"' + package["version"] + '"'
+        target_compat = '[]'
         if name in toml_markers:
             version_select = "select({\n"
+            target_compat = version_select
             for version in toml_markers[name]:
                 for platform in toml_markers[name][version]:
                     system, machine = platform.split("!")
                     version_select += "        ':{system}!{machine}':'{version}',\n".format(system = system, machine = machine, version = version)
+                    target_compat  += "        ':{system}!{machine}':[],\n".format(system = system, machine = machine, version = version)
             version_select += "    })"
+            target_compat += "'//conditions:default':['@platforms//:incompatible'],\n    })"
 
         package_names.append(_clean_name(name))
         packages.append(struct(
             name = _clean_name(name),
             pkg = name,
             version = version_select,
+            target_compat = target_compat,
             hashes = hashes[name],
             marker = package.get("marker", None),
             source_url = package.get("source", {}).get("url", None),
@@ -288,6 +293,7 @@ download_wheel(
     name = "wheel_{name}",
     pkg = "{pkg}",
     version = {version},
+    target_compatible_with = {target_compat},
     hashes = {hashes},
     marker = "{marker}",
     source_url = "{source_url}",
@@ -348,6 +354,7 @@ selects.config_setting_group(
             name = _clean_name(package.name),
             pkg = package.pkg,
             version = package.version,
+            target_compat = package.target_compat,
             hashes = package.hashes,
             marker = marker,
             source_url = package.source_url or "",
