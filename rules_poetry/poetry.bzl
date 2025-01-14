@@ -292,13 +292,13 @@ download_wheel(
     marker = "{marker}",
     source_url = "{source_url}",
     visibility = ["//visibility:private"],
-    tags = [{download_tags}, "requires-network"],
+    tags = [{download_tags}, "requires-network", "python_module"],
 )
 
 pip_install(
     name = "install_{name}",
     wheel = ":wheel_{name}",
-    tags = [{install_tags}],
+    tags = [{install_tags}, "python_module"],
 )
 
 py_library(
@@ -308,6 +308,7 @@ py_library(
     imports = ["{pkg}"],
     deps = {dependencies},
     visibility = ["//visibility:public"],
+    tags = ["python_module"]
 )
 """
 
