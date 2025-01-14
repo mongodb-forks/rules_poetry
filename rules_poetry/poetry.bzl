@@ -298,7 +298,7 @@ download_wheel(
 pip_install(
     name = "install_{name}",
     wheel = ":wheel_{name}",
-    tags = [{install_tags}, "python_module"],
+    tags = [{install_tags}] + ["python_module"],
 )
 
 py_library(
@@ -308,7 +308,7 @@ py_library(
     imports = ["{pkg}"],
     deps = {dependencies},
     visibility = ["//visibility:public"],
-    tags = ["python_module"]
+    tags = ["python_module"],
 )
 """
 
