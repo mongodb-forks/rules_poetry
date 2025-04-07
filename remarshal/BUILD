@@ -1,7 +1,6 @@
-load("@pip//:requirements.bzl", "requirement")
-load("@subpar//:subpar.bzl", "par_binary")
+load("@pypi//:requirements.bzl", "requirement")
 
-par_binary(
+py_binary(
     name = "remarshal",
     srcs = ["remarshal.py"],
     visibility = ["//visibility:public"],
@@ -12,4 +11,10 @@ par_binary(
         requirement("remarshal"),
         requirement("six"),
     ],
+)
+
+filegroup(
+    name = "remarshal_zip",
+    srcs = [":remarshal"],
+    output_group = "python_zip_file",
 )

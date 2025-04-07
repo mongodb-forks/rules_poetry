@@ -3,3 +3,4 @@ bazel-*
 .ijwb/
 .bazelrc
 __pycache__
+.vscode/

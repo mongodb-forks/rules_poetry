@@ -2,37 +2,34 @@ workspace(name = "remarshal")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-# Toolchains
-# register_toolchains("//toolchains:homebrew_python_toolchain")
 
-# Pip rules
 http_archive(
-    name = "io_bazel_rules_python",
-    sha256 = "81f55d905069f24a6b71300869c212368eeb83a50fc0c60b56e586ff3b980230",
-    strip_prefix = "rules_python-cf14348593976a5b2875deee16d9b42d52e0f79b",
-    urls = ["https://github.com/soniaai/rules_python/archive/cf14348593976a5b2875deee16d9b42d52e0f79b.tar.gz"],
+    name = "rules_python",
+    sha256 = "2cc26bbd53854ceb76dd42a834b1002cd4ba7f8df35440cf03482e045affc244",
+    strip_prefix = "rules_python-1.3.0",
+    url = "https://github.com/bazel-contrib/rules_python/releases/download/1.3.0/rules_python-1.3.0.tar.gz",
 )
 
-# Only needed for PIP support, used to build the Poetry extensions
-load("@io_bazel_rules_python//python:pip.bzl", "pip_repositories")
+load("@rules_python//python:repositories.bzl", "py_repositories")
 
-pip_repositories()
+py_repositories()
 
-load("@io_bazel_rules_python//python:pip.bzl", "pip_import")
+load("@rules_python//python:repositories.bzl", "python_register_toolchains")
 
-pip_import(
-    name = "pip",
-    requirements = "@remarshal//:requirements.txt",
+python_register_toolchains(
+    name = "python_3_10",
+    python_version = "3.10",
 )
 
-load("@pip//:requirements.bzl", "pip_install")
+load("@rules_python//python:pip.bzl", "pip_parse")
 
-pip_install()
-
-# Subpar rules
-http_archive(
-    name = "subpar",
-    sha256 = "34bb4dadd86bbdd3b5736952167e20a1a4c27ff739de11532c4ef77c7c6a68d9",
-    strip_prefix = "subpar-35bb9f0092f71ea56b742a520602da9b3638a24f",
-    urls = ["https://github.com/google/subpar/archive/35bb9f0092f71ea56b742a520602da9b3638a24f.tar.gz"],
+pip_parse(
+    name = "pypi",
+    python_interpreter_target = "@python_3_10_host//:python",
+    requirements_lock = "//:requirements.txt",
 )
+
+# Load the starlark macro, which will define your dependencies.
+load("@pypi//:requirements.bzl", "install_deps")
+# Call it to define repos for your requirements.
+install_deps()

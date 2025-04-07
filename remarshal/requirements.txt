@@ -1,5 +1,5 @@
-PyYAML==5.4
-python-dateutil==2.8.0
-pytoml==0.1.20
+PyYAML==6.0.2
+python-dateutil==2.9.0
+pytoml==0.1.21
 remarshal==0.10.0
-six==1.12.0
+six==1.17.0
